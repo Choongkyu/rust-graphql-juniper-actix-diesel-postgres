@@ -2,8 +2,10 @@ use super::context::GraphQLContext;
 use super::db::PostgresPool;
 use super::graphql::create_schema;
 use super::graphql::Schema;
+use actix_web::Responder;
 use actix_web::{web, Error, HttpResponse};
-use juniper::http::playground::playground_source;
+use actix_web_lab::respond::Html;
+use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 use std::sync::Arc;
 
@@ -12,20 +14,18 @@ use std::sync::Arc;
 pub fn graphql_endpoints(config: &mut web::ServiceConfig) {
     let schema = Arc::new(create_schema());
     config
-        .data(schema)
-        .route("/graphql", web::post().to(graphql))
-        .route("/graphql", web::get().to(graphql_playground));
+        .app_data(web::Data::new(schema))
+        .route("/graphql", web::post().to(graphql_route))
+        .route("/graphql", web::get().to(graphql_graphiql));
 }
 
 // The GraphQL Playground route.
-async fn graphql_playground() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type("text/html; charset=utf-8")
-        .body(playground_source("/graphql"))
+async fn graphql_graphiql() -> impl Responder {
+    Html(graphiql_source("/graphql", None))
 }
 
 // The core handler that provides all GraphQL functionality.
-async fn graphql(
+async fn graphql_route(
     // The DB connection pool
     pool: web::Data<PostgresPool>,
     // The GraphQL schema
@@ -39,15 +39,8 @@ async fn graphql(
     };
 
     // Handle the incoming request and return a string result (or error)
-    let res = web::block(move || {
-        let res = data.execute(&schema, &ctx);
-        Ok::<_, serde_json::error::Error>(serde_json::to_string(&res)?)
-    })
-    .await
-    .map_err(Error::from)?;
+    let res = data.execute(&schema, &ctx).await;
 
     // Return the string as a JSON payload
-    Ok(HttpResponse::Ok()
-        .content_type("application/json")
-        .body(res))
+    Ok(HttpResponse::Ok().json(res))
 }

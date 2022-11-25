@@ -11,7 +11,7 @@ pub struct Todo {
 
 // I've chosen to make the fields explicit, but could've gotten the same result
 // applying #[derive(juniper::GraphQLObject)] to the Todo struct above
-#[juniper::object]
+#[juniper::graphql_object]
 impl Todo {
     #[graphql(name = "id")]
     fn id(&self) -> i32 {
@@ -31,7 +31,7 @@ impl Todo {
 
 // Used to create new TODOs
 #[derive(Insertable)]
-#[table_name = "todos"]
+#[diesel(table_name = todos)]
 pub struct NewTodo<'a> {
     pub task: &'a str,
     pub done: &'a bool,

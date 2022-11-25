@@ -15,14 +15,14 @@ pub struct Todos;
 // associated with the Query and Mutation structs. This is NOT necessary but
 // I personally prefer it.
 impl Todos {
-    pub fn all_todos(conn: &PgConnection) -> FieldResult<Vec<Todo>> {
+    pub fn all_todos(conn: &mut PgConnection) -> FieldResult<Vec<Todo>> {
         let res = todos.load::<Todo>(conn);
 
         graphql_translate(res)
     }
 
     pub fn create_todo(
-        conn: &PgConnection,
+        conn: &mut PgConnection,
         new_todo: CreateTodoInput,
     ) -> FieldResult<Todo> {
         use super::schema::todos;
@@ -40,7 +40,7 @@ impl Todos {
     }
 
     pub fn get_todo_by_id(
-        conn: &PgConnection,
+        conn: &mut PgConnection,
         todo_id: i32,
     ) -> FieldResult<Option<Todo>> {
         match todos.find(todo_id).get_result::<Todo>(conn) {
@@ -54,24 +54,27 @@ impl Todos {
         }
     }
 
-    pub fn done_todos(conn: &PgConnection) -> FieldResult<Vec<Todo>> {
+    pub fn done_todos(conn: &mut PgConnection) -> FieldResult<Vec<Todo>> {
         let res = todos.filter(done.eq(true)).load::<Todo>(conn);
 
         graphql_translate(res)
     }
 
-    pub fn not_done_todos(conn: &PgConnection) -> FieldResult<Vec<Todo>> {
+    pub fn not_done_todos(conn: &mut PgConnection) -> FieldResult<Vec<Todo>> {
         let res = todos.filter(done.eq(false)).load::<Todo>(conn);
 
         graphql_translate(res)
     }
 
-    pub fn mark_todo_as_done(conn: &PgConnection, todo_id: i32) -> FieldResult<Todo> {
+    pub fn mark_todo_as_done(
+        conn: &mut PgConnection,
+        todo_id: i32,
+    ) -> FieldResult<Todo> {
         mark_todo_as(conn, todo_id, true)
     }
 
     pub fn mark_todo_as_not_done(
-        conn: &PgConnection,
+        conn: &mut PgConnection,
         todo_id: i32,
     ) -> FieldResult<Todo> {
         mark_todo_as(conn, todo_id, false)
@@ -87,7 +90,11 @@ fn graphql_translate<T>(res: Result<T, diesel::result::Error>) -> FieldResult<T>
 
 // This helper function ensures that users don't mark TODOs as done that are already done
 // (or not done that are already not done).
-fn mark_todo_as(conn: &PgConnection, todo_id: i32, is_done: bool) -> FieldResult<Todo> {
+fn mark_todo_as(
+    conn: &mut PgConnection,
+    todo_id: i32,
+    is_done: bool,
+) -> FieldResult<Todo> {
     let res = todos.find(todo_id).get_result::<Todo>(conn);
 
     // Poor man's Ternary operator for error output text
